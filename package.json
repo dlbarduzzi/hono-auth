@@ -1,17 +1,21 @@
 {
   "name": "hono-auth",
   "type": "module",
+  "version": "0.1.0",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/serve.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/serve.js",
+    "lint": "eslint"
   },
   "dependencies": {
     "@hono/node-server": "^1.15.0",
     "hono": "^4.8.4"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^4.16.2",
     "@types/node": "^20.11.17",
+    "eslint-plugin-format": "^1.0.1",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }
