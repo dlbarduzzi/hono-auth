@@ -1,9 +1,9 @@
-import { newApp } from "@/app/main"
+import { auth } from "@/api/auth/routes"
+import { bootstrap, newApp } from "@/app/main"
 
 const app = newApp()
+bootstrap(app)
 
-app.get("/", (c) => {
-  return c.text("Welcome, Hono!")
-})
+app.route("/api/v1/auth", auth)
 
 export { app }

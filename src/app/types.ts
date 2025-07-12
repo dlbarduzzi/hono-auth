@@ -1,3 +1,4 @@
+import type { Hono } from "hono"
 import type { Logger } from "winston"
 
 export type AppEnv = {
@@ -5,3 +6,5 @@ export type AppEnv = {
     logger: Logger
   }
 }
+
+export type App = Hono<AppEnv>
