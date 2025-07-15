@@ -26,3 +26,11 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+# custom
+.env*
+!.env.example
+!.vscode/settings.json
+.local/
+docker-data/
+dist/
