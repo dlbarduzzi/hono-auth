@@ -3,9 +3,9 @@
   "type": "module",
   "version": "0.1.0",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/serve.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/serve.js",
     "lint": "eslint"
   },
   "dependencies": {
