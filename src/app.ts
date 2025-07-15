@@ -1,10 +1,9 @@
+import { routes } from "@/core/routes"
 import { bootstrap, newApp } from "@/core/app"
 
 const app = newApp()
 bootstrap(app)
 
-app.get("/", ctx => {
-  return ctx.text("Hello!")
-})
+app.route("/", routes)
 
 export { app }
