@@ -9,7 +9,6 @@ export const login: AppHandler = async ctx => {
     { id: "session-1", token: "abcd-1234-efgh-5678" },
     true,
   )
-
   return ctx.json(
     {
       ok: true,

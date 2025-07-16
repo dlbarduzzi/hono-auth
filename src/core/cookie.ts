@@ -1,7 +1,8 @@
 import type { AppContext } from "./types"
 
 import { env } from "./env"
-import { capitalize } from "@/tools/strings"
+import { hmac } from "./hmac"
+import { capitalize } from "./strings"
 
 type UserSchema = {
   id: string
@@ -23,32 +24,6 @@ type CookieOptions = {
   sameSite?: "Strict" | "Lax" | "None" | "strict" | "lax" | "none"
 }
 
-function createCookie(name: string, options?: CookieOptions) {
-  const prefix = env.COOKIE_PREFIX
-  const cookieName = `${prefix}.${name}`
-
-  const secure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
-  const secureCookiePrefix = secure ? "__Secure-" : ""
-
-  return {
-    name: `${secureCookiePrefix}${cookieName}`,
-    options: {
-      path: "/",
-      secure: !!secureCookiePrefix,
-      sameSite: "lax",
-      httpOnly: true,
-      ...options,
-    } as CookieOptions,
-  }
-}
-
-async function makeSignature(value: string, secret: string) {
-  if (1 > 2) {
-    console.warn({ value, secret })
-  }
-  return "make-signature-not-implemented"
-}
-
 async function getSignedCookie(name: "other" | "rememberMe") {
   if (name === "rememberMe") {
     return true
@@ -56,7 +31,7 @@ async function getSignedCookie(name: "other" | "rememberMe") {
   return undefined
 }
 
-function _serializeCookie(name: string, value: string, options: CookieOptions) {
+function _serialize(name: string, value: string, options: CookieOptions) {
   let cookie = `${name}=${value}`
 
   if (name.startsWith("__Secure-") && !options.secure) {
@@ -120,33 +95,53 @@ async function serializeSignedCookie(
   secret: string,
   options: CookieOptions,
 ) {
-  const signature = await makeSignature(value, secret)
+  const signature = await hmac.sign(value, secret)
   value = `${value}.${signature}`
   value = encodeURIComponent(value)
-  return _serializeCookie(name, value, options)
+  return _serialize(name, value, options)
 }
 
-async function createSignedCookie(
+async function setSignedCookie(
+  ctx: AppContext,
   name: string,
   value: string,
   secret: string,
   options: CookieOptions,
 ) {
-  const cookie = await serializeSignedCookie(name, value, secret, options)
-  return cookie
+  const cookie = await serializeSignedCookie(
+    name,
+    value,
+    secret,
+    options,
+  )
+  ctx.header("Set-Cookie", cookie, { append: true })
+}
+
+function createCookie(name: string, options?: CookieOptions) {
+  const prefix = env.COOKIE_PREFIX
+  const cookieName = `${prefix}.${name}`
+
+  const secure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
+  const secureCookiePrefix = secure ? "__Secure-" : ""
+
+  return {
+    name: `${secureCookiePrefix}${cookieName}`,
+    options: {
+      path: "/",
+      secure: !!secureCookiePrefix,
+      sameSite: "lax",
+      httpOnly: true,
+      ...options,
+    } as CookieOptions,
+  }
 }
 
 export async function setSessionCookie(
   ctx: AppContext,
-  user: UserSchema,
+  _: UserSchema,
   session: SessionSchema,
   rememberMe?: boolean,
 ) {
-  if (1 > 2) {
-    // TODO: Set user in session data.
-    console.warn(user)
-  }
-
   const rememberMeCookie = await getSignedCookie("rememberMe")
   rememberMe = rememberMe !== undefined ? rememberMe : !!rememberMeCookie
 
@@ -156,12 +151,25 @@ export async function setSessionCookie(
       : new Date(Date.now() + 1000 * 60 * 60 * 24 * 1), // 1 day
   })
 
-  const signedCookie = await createSignedCookie(
+  await setSignedCookie(
+    ctx,
     cookie.name,
     session.token,
     env.COOKIE_SECRET,
     cookie.options,
   )
 
-  ctx.header("Set-Cookie", signedCookie, { append: true })
+  if (!rememberMe) {
+    const cookie = createCookie("remember_me", {
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+    })
+
+    await setSignedCookie(
+      ctx,
+      cookie.name,
+      "false",
+      env.COOKIE_SECRET,
+      cookie.options,
+    )
+  }
 }
