@@ -9,6 +9,7 @@ const schema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]),
   APP_URL: z.url(),
   APP_PORT: z.coerce.number().int().positive(),
+  DATABASE_URL: z.url(),
   COOKIE_PREFIX: z.string().default("hono-auth"),
   COOKIE_SECRET: z.string().min(12),
 })

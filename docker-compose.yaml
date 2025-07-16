@@ -1,0 +1,11 @@
+services:
+  db:
+    image: postgres:17.2
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=test_db
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_pass
+    volumes:
+      - ./docker-data/db:/var/lib/postgresql/data
