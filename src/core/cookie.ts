@@ -6,6 +6,8 @@ import { hmac } from "./hmac"
 
 import { capitalize } from "./strings"
 
+const SECURE_PREFIX = "__Secure-"
+
 type CookieOptions = {
   path?: string
   domain?: string
@@ -157,66 +159,86 @@ async function setSignedCookie(
   ctx.header("Set-Cookie", cookie, { append: true })
 }
 
-function createCookie(name: string, options?: CookieOptions) {
-  const prefix = env.COOKIE_PREFIX
-  const cookieName = `${prefix}.${name}`
-
-  const secure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
-  const secureCookiePrefix = secure ? "__Secure-" : ""
-
-  return {
-    name: `${secureCookiePrefix}${cookieName}`,
-    options: {
+const cookies = {
+  getName: (name: string) => {
+    const isSecure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
+    const cookieName = `${env.COOKIE_PREFIX}.${name}`
+    return !isSecure ? cookieName : `${SECURE_PREFIX}${cookieName}`
+  },
+  getOptions: (options?: CookieOptions): CookieOptions => {
+    return {
       path: "/",
-      secure: !!secureCookiePrefix,
+      secure: true,
       sameSite: "lax",
       httpOnly: true,
       ...options,
-    } as CookieOptions,
-  }
+    }
+  },
+  rememberMe: () => {
+    const name = cookies.getName("remember_me")
+    return {
+      name,
+      options: cookies.getOptions({
+        secure: name.startsWith(SECURE_PREFIX),
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+      }),
+    }
+  },
+  sessionToken: (rememberMe: boolean) => {
+    const name = cookies.getName("session_token")
+    return {
+      name,
+      options: cookies.getOptions({
+        secure: name.startsWith(SECURE_PREFIX),
+        expires: rememberMe
+          ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 7) // 7 days
+          : new Date(Date.now() + 1000 * 60 * 60 * 24 * 1), // 1 day
+      }),
+    }
+  },
+}
+
+async function setCacheCookie(user: UserSchema, session: SessionSchema) {
+  console.warn({ user, session })
 }
 
 export async function setSessionCookie(
   ctx: AppContext,
-  _: UserSchema,
+  user: UserSchema,
   session: SessionSchema,
   rememberMe?: boolean,
 ) {
-  // TODO: Redo this logic...
-  const rememberMeCookie = await getSignedCookie(
-    "hono-auth.remember_me",
+  const rememberMeCookie = cookies.rememberMe()
+
+  const rememberMeSignedCookie = await getSignedCookie(
+    rememberMeCookie.name,
     env.COOKIE_SECRET,
     ctx.req.raw.headers,
   )
-  rememberMe = rememberMe !== undefined
-    ? rememberMe
-    : rememberMeCookie["hono-auth.remember_me"] === "true"
 
-  const cookie = createCookie("session_token", {
-    expires: rememberMe
-      ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 7) // 7 days
-      : new Date(Date.now() + 1000 * 60 * 60 * 24 * 1), // 1 day
-  })
+  const doNotRememberMe = rememberMe !== undefined
+    ? !rememberMe
+    : !!rememberMeSignedCookie[rememberMeCookie.name]
+
+  const sessionTokenCookie = cookies.sessionToken(!doNotRememberMe)
 
   await setSignedCookie(
     ctx,
-    cookie.name,
+    sessionTokenCookie.name,
     session.token,
     env.COOKIE_SECRET,
-    cookie.options,
+    sessionTokenCookie.options,
   )
 
-  if (!rememberMe) {
-    const cookie = createCookie("remember_me", {
-      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
-    })
-
+  if (doNotRememberMe) {
     await setSignedCookie(
       ctx,
-      cookie.name,
+      rememberMeCookie.name,
       "false",
       env.COOKIE_SECRET,
-      cookie.options,
+      rememberMeCookie.options,
     )
   }
+
+  await setCacheCookie(user, session)
 }
