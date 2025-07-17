@@ -1,18 +1,10 @@
 import type { AppContext } from "./types"
+import type { UserSchema, SessionSchema } from "@/db/schemas"
 
 import { env } from "./env"
 import { hmac } from "./hmac"
+
 import { capitalize } from "./strings"
-
-type UserSchema = {
-  id: string
-  email: string
-}
-
-type SessionSchema = {
-  id: string
-  token: string
-}
 
 type CookieOptions = {
   path?: string
@@ -48,7 +40,7 @@ function parseCookie(name: string, cookie: string) {
     }
 
     const cookieValue = pair.substring(valueStartIndex + 1).trim()
-    cookieObject[cookieName] = cookieValue
+    cookieObject[cookieName] = decodeURIComponent(cookieValue)
   }
 
   return cookieObject
@@ -64,11 +56,11 @@ async function parseSignedCookie(name: string, secret: string, cookie: string) {
       continue
     }
 
-    const cookieValue = value.substring(0, signatureStartIndex)
-    const cookieSignature = value.substring(signatureStartIndex + 1)
+    const signedValue = value.substring(0, signatureStartIndex)
+    const hexSignature = value.substring(signatureStartIndex + 1)
 
-    const isVerified = cookieSignature === secret
-    signedCookie[key] = isVerified ? cookieValue : ""
+    const isVerified = await hmac.verify(signedValue, secret, hexSignature)
+    signedCookie[key] = isVerified ? signedValue : ""
   }
 
   return signedCookie

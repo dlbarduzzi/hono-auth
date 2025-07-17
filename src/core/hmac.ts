@@ -23,4 +23,18 @@ export const hmac = {
     )
     return hex.encode(signature)
   },
+  verify: async (value: string, secret: string, hexSignature: string) => {
+    const buffer = new Uint8Array(hexSignature.length / 2)
+    for (let i = 0; i < buffer.length; i++) {
+      buffer[i] = Number.parseInt(hexSignature.slice(i * 2, i * 2 + 2), 16)
+    }
+    const cryptoKey = await hmac.key(secret)
+    const signature = new Uint8Array(buffer)
+    return await subtle.verify(
+      algorithm.name,
+      cryptoKey,
+      signature,
+      new TextEncoder().encode(value),
+    )
+  },
 }

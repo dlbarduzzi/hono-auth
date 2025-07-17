@@ -1,12 +1,13 @@
 import type { AppHandler } from "./types"
+import type { UserSchema, SessionSchema } from "@/db/schemas"
 
 import z from "zod"
 
 import { lowercase } from "./strings"
+import { generateId } from "./security"
 import { setSessionCookie } from "./cookie"
 
 import { loginSchema } from "./auth-schemas"
-import { generateId } from "./security"
 
 export const login: AppHandler = async ctx => {
   const input = await ctx.req.json()
@@ -27,8 +28,25 @@ export const login: AppHandler = async ctx => {
   let { email, rememberMe } = parsed.data
   email = lowercase(email)
 
-  const user = { id: "user-1", email }
-  const session = { id: "session-1", token: generateId(32) }
+  const user: UserSchema = {
+    id: "user-1",
+    email,
+    imageUrl: "",
+    isEmailVerified: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  const session: SessionSchema = {
+    id: "session-1",
+    token: generateId(32),
+    userId: "",
+    ipAddress: "",
+    userAgent: "",
+    expiresAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
 
   await setSessionCookie(
     ctx,
