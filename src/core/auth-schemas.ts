@@ -13,7 +13,7 @@ export const loginSchema = z.strictObject({
     .string({ error: "Password is required" })
     .trim()
     .min(1, "Password is required"),
-  rememberMe: z.boolean().optional().default(false),
+  rememberMe: z.boolean().optional().default(undefined),
 })
 
 export const registerSchema = z.strictObject({

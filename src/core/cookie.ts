@@ -182,19 +182,15 @@ export async function setSessionCookie(
   session: SessionSchema,
   rememberMe?: boolean,
 ) {
-  const testCookie = await getSignedCookie(
+  // TODO: Redo this logic...
+  const rememberMeCookie = await getSignedCookie(
     "hono-auth.remember_me",
     env.COOKIE_SECRET,
     ctx.req.raw.headers,
   )
-  console.warn({ testCookie })
-
-  const rememberMeCookie = await getSignedCookie(
-    "rememberMe",
-    env.COOKIE_SECRET,
-    ctx.req.raw.headers,
-  )
-  rememberMe = rememberMe !== undefined ? rememberMe : !!rememberMeCookie
+  rememberMe = rememberMe !== undefined
+    ? rememberMe
+    : rememberMeCookie["hono-auth.remember_me"] === "true"
 
   const cookie = createCookie("session_token", {
     expires: rememberMe
