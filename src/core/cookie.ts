@@ -24,11 +24,59 @@ type CookieOptions = {
   sameSite?: "Strict" | "Lax" | "None" | "strict" | "lax" | "none"
 }
 
-async function getSignedCookie(name: "other" | "rememberMe") {
-  if (name === "rememberMe") {
-    return true
+type ParsedCookie = { [key: string]: string }
+type SignedCookie = { [key: string]: string }
+
+function parseCookie(name: string, cookie: string) {
+  const cookieObject: ParsedCookie = {}
+
+  if (!cookie.includes(name)) {
+    return cookieObject
   }
-  return undefined
+
+  const pairs = cookie.trim().split(";")
+
+  for (const pair of pairs) {
+    const valueStartIndex = pair.indexOf("=")
+    if (valueStartIndex < 0) {
+      continue
+    }
+
+    const cookieName = pair.substring(0, valueStartIndex).trim()
+    if (name !== cookieName) {
+      continue
+    }
+
+    const cookieValue = pair.substring(valueStartIndex + 1).trim()
+    cookieObject[cookieName] = cookieValue
+  }
+
+  return cookieObject
+}
+
+async function parseSignedCookie(name: string, secret: string, cookie: string) {
+  const signedCookie: SignedCookie = {}
+  const parsedCookie = parseCookie(name, cookie)
+
+  for (const [key, value] of Object.entries(parsedCookie)) {
+    const signatureStartIndex = value.lastIndexOf(".")
+    if (signatureStartIndex < 0) {
+      continue
+    }
+
+    const cookieValue = value.substring(0, signatureStartIndex)
+    const cookieSignature = value.substring(signatureStartIndex + 1)
+
+    const isVerified = cookieSignature === secret
+    signedCookie[key] = isVerified ? cookieValue : ""
+  }
+
+  return signedCookie
+}
+
+async function getSignedCookie(name: string, secret: string, headers: Headers) {
+  const cookie = headers.get("Cookie")
+  return await parseSignedCookie(name, secret, cookie ?? "")
 }
 
 function _serialize(name: string, value: string, options: CookieOptions) {
@@ -142,7 +190,18 @@ export async function setSessionCookie(
   session: SessionSchema,
   rememberMe?: boolean,
 ) {
-  const rememberMeCookie = await getSignedCookie("rememberMe")
+  const testCookie = await getSignedCookie(
+    "hono-auth.remember_me",
+    env.COOKIE_SECRET,
+    ctx.req.raw.headers,
+  )
+  console.warn({ testCookie })
+
+  const rememberMeCookie = await getSignedCookie(
+    "rememberMe",
+    env.COOKIE_SECRET,
+    ctx.req.raw.headers,
+  )
   rememberMe = rememberMe !== undefined ? rememberMe : !!rememberMeCookie
 
   const cookie = createCookie("session_token", {
