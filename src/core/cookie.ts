@@ -1,6 +1,8 @@
 import type { AppContext } from "./types"
 import type { UserSchema, SessionSchema } from "@/db/schemas"
 
+import { z } from "zod"
+
 import { env } from "./env"
 import { hmac } from "./hmac"
 import { base64 } from "./base64"
@@ -303,4 +305,65 @@ export async function setSessionCookie(
   }
 
   await setCacheCookie(ctx, user, session)
+}
+
+export async function getCacheCookie(headers: Headers) {
+  const cookie = headers.get("cookie")
+  if (!cookie) {
+    return null
+  }
+
+  const name = cookies.sessionData().name
+  const parsed = parseCookie(name, cookie)
+
+  const cookieValue = parsed[name]
+  if (!cookieValue) {
+    return null
+  }
+
+  const payload = new TextDecoder().decode(base64.decode(cookieValue))
+
+  let data: unknown
+  try {
+    data = JSON.parse(payload)
+  }
+  catch {
+    data = null
+  }
+
+  if (!data) {
+    return null
+  }
+
+  const dataSchema = z.object({
+    data: z.object({
+      user: z.unknown(),
+      session: z.unknown(),
+    }),
+    expires: z.string(),
+    signature: z.string(),
+  })
+
+  const dataParsed = dataSchema.safeParse(data)
+  if (!dataParsed.success) {
+    return null
+  }
+
+  const isVerified = await hmac.verify(
+    JSON.stringify({
+      user: dataParsed.data.data.user,
+      session: dataParsed.data.data.session,
+      expires: new Date(dataParsed.data.expires).getTime(),
+    }),
+    env.COOKIE_SECRET,
+    dataParsed.data.signature,
+  )
+
+  console.warn({ isVerified })
+
+  if (!isVerified) {
+    return null
+  }
+
+  return dataParsed.data.data
 }
