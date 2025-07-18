@@ -54,6 +54,7 @@ export const login: AppHandler = async ctx => {
     session,
     rememberMe,
   )
+
   return ctx.json(
     {
       ok: true,

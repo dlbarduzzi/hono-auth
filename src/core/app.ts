@@ -3,6 +3,7 @@ import type { App, AppEnv } from "./types"
 import { Hono } from "hono"
 import { requestId } from "hono/request-id"
 
+import { db } from "@/db/connect"
 import { logger } from "@/core/logger"
 
 export function newApp() {
@@ -13,6 +14,7 @@ export function bootstrap(app: App) {
   app.use("*", requestId())
 
   app.use("*", async (ctx, next) => {
+    ctx.set("db", db)
     ctx.set("logger", logger)
     await next()
   })

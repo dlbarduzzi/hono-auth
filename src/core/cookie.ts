@@ -3,7 +3,7 @@ import type { UserSchema, SessionSchema } from "@/db/schemas"
 
 import { env } from "./env"
 import { hmac } from "./hmac"
-
+import { base64 } from "./base64"
 import { capitalize } from "./strings"
 
 const SECURE_PREFIX = "__Secure-"
@@ -159,6 +159,25 @@ async function setSignedCookie(
   ctx.header("Set-Cookie", cookie, { append: true })
 }
 
+function serializeCookie(
+  name: string,
+  value: string,
+  options: CookieOptions,
+) {
+  value = encodeURIComponent(value)
+  return _serialize(name, value, options)
+}
+
+function setCookie(
+  ctx: AppContext,
+  name: string,
+  value: string,
+  options: CookieOptions,
+) {
+  const cookie = serializeCookie(name, value, options)
+  ctx.header("Set-Cookie", cookie, { append: true })
+}
+
 const cookies = {
   getName: (name: string) => {
     const isSecure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
@@ -184,22 +203,65 @@ const cookies = {
       }),
     }
   },
-  sessionToken: (rememberMe: boolean) => {
+  sessionData: () => {
+    const name = cookies.getName("session_data")
+    return {
+      name,
+      options: cookies.getOptions({
+        secure: name.startsWith(SECURE_PREFIX),
+        expires: new Date(Date.now() + 1000 * 60 * 5), // 5 minutes
+      }),
+    }
+  },
+  sessionToken: (doNotRememberMe: boolean) => {
     const name = cookies.getName("session_token")
     return {
       name,
       options: cookies.getOptions({
         secure: name.startsWith(SECURE_PREFIX),
-        expires: rememberMe
-          ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 7) // 7 days
-          : new Date(Date.now() + 1000 * 60 * 60 * 24 * 1), // 1 day
+        expires: doNotRememberMe
+          ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 1) // 1 day
+          : new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
       }),
     }
   },
 }
 
-async function setCacheCookie(user: UserSchema, session: SessionSchema) {
-  console.warn({ user, session })
+async function setCacheCookie(
+  ctx: AppContext,
+  user: UserSchema,
+  session: SessionSchema,
+) {
+  const sessionDataCookie = cookies.sessionData()
+
+  const expires = sessionDataCookie.options.expires
+    ? sessionDataCookie.options.expires
+    : new Date(Date.now() + 1000 * 60 * 5)
+
+  const data = base64.encode(
+    JSON.stringify({
+      data: { user, session },
+      expires,
+      signature: await hmac.sign(JSON.stringify({
+        user,
+        session,
+        expires: expires.getTime(),
+      }), env.COOKIE_SECRET),
+    }),
+    false,
+    true,
+  )
+
+  if (data.length > 4093) {
+    throw new Error(`Session data is too large (${data.length}). Max allowed is 4093.`)
+  }
+
+  setCookie(
+    ctx,
+    sessionDataCookie.name,
+    data,
+    sessionDataCookie.options,
+  )
 }
 
 export async function setSessionCookie(
@@ -220,7 +282,7 @@ export async function setSessionCookie(
     ? !rememberMe
     : !!rememberMeSignedCookie[rememberMeCookie.name]
 
-  const sessionTokenCookie = cookies.sessionToken(!doNotRememberMe)
+  const sessionTokenCookie = cookies.sessionToken(doNotRememberMe)
 
   await setSignedCookie(
     ctx,
@@ -240,5 +302,5 @@ export async function setSessionCookie(
     )
   }
 
-  await setCacheCookie(user, session)
+  await setCacheCookie(ctx, user, session)
 }
