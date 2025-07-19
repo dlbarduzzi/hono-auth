@@ -70,7 +70,7 @@ async function parseSignedCookie(name: string, secret: string, cookie: string) {
   return signedCookie
 }
 
-async function getSignedCookie(name: string, secret: string, headers: Headers) {
+export async function getSignedCookie(name: string, secret: string, headers: Headers) {
   const cookie = headers.get("Cookie")
   return await parseSignedCookie(name, secret, cookie ?? "")
 }
@@ -180,7 +180,7 @@ function setCookie(
   ctx.header("Set-Cookie", cookie, { append: true })
 }
 
-const cookies = {
+export const cookies = {
   getName: (name: string) => {
     const isSecure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
     const cookieName = `${env.COOKIE_PREFIX}.${name}`
@@ -358,8 +358,6 @@ export async function getCacheCookie(headers: Headers) {
     env.COOKIE_SECRET,
     dataParsed.data.signature,
   )
-
-  console.warn({ isVerified })
 
   if (!isVerified) {
     return null
