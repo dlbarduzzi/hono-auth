@@ -5,6 +5,8 @@ import { logger } from "@/core/logger"
 
 import { app } from "./app"
 
+import "@/tools/http/cookie"
+
 serve({
   port: env.APP_PORT,
   fetch: app.fetch,

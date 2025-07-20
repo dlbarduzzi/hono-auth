@@ -3,7 +3,7 @@ import type { UserSchema, SessionSchema } from "@/db/schemas"
 
 import z from "zod"
 
-import { lowercase } from "./strings"
+import { lowercase } from "@/tools/strings/strings"
 import { generateId } from "./security"
 import { setSessionCookie } from "./cookie"
 

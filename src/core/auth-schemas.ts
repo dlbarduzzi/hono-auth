@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { strings } from "./strings"
+import { strings } from "@/tools/strings/strings"
 
 const PASSWORD_MIN_CHARS = 8
 const PASSWORD_MAX_CHARS = 72

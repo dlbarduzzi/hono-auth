@@ -1,24 +1,15 @@
 import type { AppContext } from "./types"
 import type { UserSchema, SessionSchema } from "@/db/schemas"
+import type { CookieOptions } from "@/tools/http/cookie"
 
 import { z } from "zod"
 
 import { env } from "./env"
 import { hmac } from "./hmac"
 import { base64 } from "./base64"
-import { capitalize } from "./strings"
+import { capitalize } from "@/tools/strings/strings"
 
-const SECURE_PREFIX = "__Secure-"
-
-type CookieOptions = {
-  path?: string
-  domain?: string
-  maxAge?: number
-  secure?: boolean
-  expires?: Date
-  httpOnly?: boolean
-  sameSite?: "Strict" | "Lax" | "None" | "strict" | "lax" | "none"
-}
+import { SECURE_COOKIE_PREFIX } from "@/tools/http/cookie"
 
 type ParsedCookie = { [key: string]: string }
 type SignedCookie = { [key: string]: string }
@@ -184,13 +175,13 @@ export const cookies = {
   getName: (name: string) => {
     const isSecure = env.APP_URL.startsWith("https://") ?? env.NODE_ENV === "production"
     const cookieName = `${env.COOKIE_PREFIX}.${name}`
-    return !isSecure ? cookieName : `${SECURE_PREFIX}${cookieName}`
+    return !isSecure ? cookieName : `${SECURE_COOKIE_PREFIX}${cookieName}`
   },
   getOptions: (options?: CookieOptions): CookieOptions => {
     return {
       path: "/",
       secure: true,
-      sameSite: "lax",
+      sameSite: "Lax",
       httpOnly: true,
       ...options,
     }
@@ -200,7 +191,7 @@ export const cookies = {
     return {
       name,
       options: cookies.getOptions({
-        secure: name.startsWith(SECURE_PREFIX),
+        secure: name.startsWith(SECURE_COOKIE_PREFIX),
         expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
       }),
     }
@@ -210,7 +201,7 @@ export const cookies = {
     return {
       name,
       options: cookies.getOptions({
-        secure: name.startsWith(SECURE_PREFIX),
+        secure: name.startsWith(SECURE_COOKIE_PREFIX),
         expires: new Date(Date.now() + 1000 * 60 * 5), // 5 minutes
       }),
     }
@@ -220,7 +211,7 @@ export const cookies = {
     return {
       name,
       options: cookies.getOptions({
-        secure: name.startsWith(SECURE_PREFIX),
+        secure: name.startsWith(SECURE_COOKIE_PREFIX),
         expires: doNotRememberMe
           ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 1) // 1 day
           : new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
